@@ -1,19 +1,21 @@
 """Portfolio and position management primitives."""
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Dict, Mapping, MutableMapping
 
 import pandas as pd
+from pydantic import BaseModel, Field
 
 
-@dataclass
-class Position:
+class Position(BaseModel):
     """A simple container for holding information about a single position."""
 
     symbol: str
-    quantity: float
-    avg_price: float
+    quantity: float = Field(0.0)
+    avg_price: float = Field(0.0, ge=0.0)
+
+    class Config:
+        arbitrary_types_allowed = True
 
     def market_value(self, price: float) -> float:
         return self.quantity * price

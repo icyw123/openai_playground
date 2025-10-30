@@ -1,49 +1,46 @@
-# AkShare Daily Backtesting Framework
+# AkShare 日线回测框架
 
-This project contains a lightweight daily backtesting framework that pulls
-market data from [AkShare](https://akshare.akfamily.xyz/) and evaluates
-strategies on the Shanghai Composite Index (上证指数) trading calendar. A sample
-momentum strategy is provided to demonstrate how to implement custom logic.
+> 本项目由 ChatGPT Codex 自动生成。
 
-## Features
+该仓库提供一个轻量级的日线回测框架，能够通过 [AkShare](https://akshare.akfamily.xyz/) 获取市场数据，并在上证指数的交易日历上执行策略。示例中包含一个动量策略，用于展示如何编写自定义策略逻辑。
 
-- Fetches index and stock data using AkShare.
-- Executes strategy logic once per index trading day.
-- Provides a portfolio abstraction that keeps track of cash and positions.
-- Supports weight-based rebalancing decisions (`hold`, `调仓`, `开仓`, `平仓`).
-- Marks positions to market using the **next day's opening price** to compute
-daily floating PnL.
-- Saves a chart of the backtest account value over time.
+## 核心特性
 
-## Installation
+- 使用 AkShare 抓取指数与个股行情数据。
+- 按照指数的每个交易日触发策略逻辑。
+- 提供投资组合抽象，跟踪现金与持仓。
+- 支持基于目标权重的持仓决策（`hold`、`调仓`、`开仓`、`平仓`）。
+- 以**下一根日线的开盘价**对持仓进行盯市，计算当日浮动盈亏。
+- 借助 [Pydantic](https://docs.pydantic.dev/) 校验框架数据结构，并通过 [Typer](https://typer.tiangolo.com/) 提供命令行入口。
+- 自动保存账户净值随时间变化的图表。
+
+## 环境安装
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Alternatively, install the dependencies directly:
+或直接安装所需依赖：
 
 ```bash
-pip install akshare matplotlib pandas
+pip install akshare matplotlib pandas pydantic typer
 ```
 
-## Running the sample backtest
+## 运行示例回测
 
 ```bash
-python run_backtest.py --start 20220101 --end 20221231 \
-    --watchlist 600519 000858 000333 000651 000001 600036 \
+python run_backtest.py run --start 20220101 --end 20221231 \
+    --index-symbol sh000001 --universe-index 000300 \
     --initial-capital 1000000 --lookback 60 --top-n 3
 ```
 
-The script prints the last few rows of the equity curve and saves the
-chart to `backtest_equity_curve.png`.
+脚本会在控制台输出账户净值曲线的末几行，并将曲线保存到 `backtest_equity_curve.png`。动量策略会根据参数 `--universe-index` 自动获取候选股票，因此无需在入口命令中单独列出股票池。
 
-## Implementing your own strategy
+## 自定义策略
 
-1. Subclass `backtest.strategy.Strategy` and implement the `on_date` method.
-2. Use `StrategyContext` to access historical prices and the current
-   portfolio snapshot.
-3. Return a list of `Order` instances with target portfolio weights.
-4. Plug your strategy into the `Backtester` class and call `run()`.
+1. 继承 `backtest.strategy.Strategy` 并实现 `on_date` 方法。
+2. 使用 `StrategyContext` 访问历史价格数据和当前投资组合快照。
+3. 返回由目标权重描述的 `Order` 列表。
+4. 将自定义策略交给 `Backtester`，调用 `run()` 启动回测。
 
-Refer to `backtest/momentum.py` for a reference implementation.
+更多细节可参考 `backtest/momentum.py` 示例实现。

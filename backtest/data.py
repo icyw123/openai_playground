@@ -1,30 +1,34 @@
 """Data provider implementations for the backtesting framework."""
 from __future__ import annotations
 
-from dataclasses import dataclass
 from functools import lru_cache
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, List, Optional
+
+import importlib.util
 
 import pandas as pd
+from pydantic import BaseModel, Field
 
-try:
-    import akshare as ak  # type: ignore
-except ImportError as exc:  # pragma: no cover - akshare is an optional dependency during linting
+if importlib.util.find_spec("akshare") is None:  # pragma: no cover - runtime dependency check
     raise ImportError(
         "akshare is required to fetch market data. Install it with `pip install akshare`."
-    ) from exc
+    )
+
+import akshare as ak  # type: ignore  # noqa: E402  (import after dependency check)
 
 
-@dataclass(frozen=True)
-class Bar:
+class Bar(BaseModel):
     """Represents a single OHLCV bar."""
 
     date: pd.Timestamp
-    open: float
-    high: float
-    low: float
-    close: float
-    volume: float
+    open: float = Field(..., ge=0)
+    high: float = Field(..., ge=0)
+    low: float = Field(..., ge=0)
+    close: float = Field(..., ge=0)
+    volume: float = Field(..., ge=0)
+
+    class Config:
+        arbitrary_types_allowed = True
 
 
 class AkshareDataProvider:
@@ -41,6 +45,7 @@ class AkshareDataProvider:
         self._end = end
         self._stock_cache: Dict[str, pd.DataFrame] = {}
         self._index_data: Optional[pd.DataFrame] = None
+        self._index_constituents: Dict[str, List[str]] = {}
 
     def get_index_data(self) -> pd.DataFrame:
         """Return the cached index data frame sorted by date."""
@@ -108,6 +113,33 @@ class AkshareDataProvider:
                 continue
             prices[symbol] = bar.open
         return prices
+
+    def get_index_constituents(self, symbol: str) -> List[str]:
+        """Return the list of stock codes that form the given index."""
+
+        if symbol not in self._index_constituents:
+            df = ak.index_stock_cons(symbol=symbol)
+            if df.empty:
+                raise ValueError(f"No constituents returned for index {symbol}.")
+            code_column = None
+            for candidate in ("品种代码", "股票代码", "成分券代码", "证券代码", "code"):
+                if candidate in df.columns:
+                    code_column = candidate
+                    break
+            if code_column is None:
+                raise ValueError(
+                    "Unable to locate a column with stock codes in the index constituents data."
+                )
+            codes = (
+                df[code_column]
+                .astype(str)
+                .str.replace(".SH", "", regex=False)
+                .str.replace(".SZ", "", regex=False)
+                .str.zfill(6)
+                .tolist()
+            )
+            self._index_constituents[symbol] = codes
+        return self._index_constituents[symbol]
 
     def get_close_prices(self, symbols: Iterable[str], date: pd.Timestamp) -> Dict[str, float]:
         """Return the closing price for each symbol on ``date``."""

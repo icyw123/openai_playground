@@ -1,21 +1,36 @@
 """Example momentum strategy implementation."""
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import List
+
+from pydantic import Field, PrivateAttr, validator
 
 from .strategy import Order, Strategy, StrategyContext
 
 
-@dataclass
 class MomentumStrategy(Strategy):
-    watchlist: List[str]
-    lookback: int = 60
-    top_n: int = 3
+    """Cross-sectional momentum strategy based on index constituents."""
+
+    universe_index: str = Field("000300", description="Index code used to build the universe")
+    lookback: int = Field(60, ge=1)
+    top_n: int = Field(3, ge=1)
+
+    _watchlist: List[str] = PrivateAttr(default_factory=list)
+
+    @validator("top_n")
+    def validate_top_n(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("top_n must be at least 1")
+        return value
+
+    def _get_watchlist(self, ctx: StrategyContext) -> List[str]:
+        if not self._watchlist:
+            self._watchlist = ctx.data_provider.get_index_constituents(self.universe_index)
+        return self._watchlist
 
     def on_date(self, ctx: StrategyContext) -> List[Order]:
         scores = []
-        for symbol in self.watchlist:
+        for symbol in self._get_watchlist(ctx):
             history = ctx.get_history(symbol)
             if ctx.current_date not in history.index:
                 continue
@@ -40,7 +55,6 @@ class MomentumStrategy(Strategy):
         for symbol in selected:
             orders.append(Order(symbol=symbol, target_percent=weight))
 
-        # Close out positions that are no longer selected.
         current_symbols = set(ctx.portfolio.positions.keys())
         for symbol in current_symbols - set(selected):
             orders.append(Order(symbol=symbol, target_percent=0.0))

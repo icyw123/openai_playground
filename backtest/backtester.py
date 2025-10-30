@@ -1,20 +1,22 @@
 """Core backtesting engine."""
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Iterable, List
 
 import pandas as pd
+from pydantic import BaseModel, Field
 
 from .data import AkshareDataProvider
 from .portfolio import Portfolio
 from .strategy import Order, Strategy, StrategyContext
 
 
-@dataclass
-class BacktestResult:
-    dates: List[pd.Timestamp]
-    values: List[float]
+class BacktestResult(BaseModel):
+    dates: List[pd.Timestamp] = Field(default_factory=list)
+    values: List[float] = Field(default_factory=list)
+
+    class Config:
+        arbitrary_types_allowed = True
 
     def to_dataframe(self) -> pd.DataFrame:
         return pd.DataFrame({"date": self.dates, "account_value": self.values})
@@ -66,10 +68,11 @@ class Backtester:
             account_dates.append(next_date)
             account_values.append(portfolio_value)
 
-        return BacktestResult(account_dates, account_values)
+        return BacktestResult(dates=account_dates, values=account_values)
 
     def _execute_orders(self, date: pd.Timestamp, orders: Iterable[Order]) -> None:
-        symbols = {order.symbol for order in orders}
+        order_list = list(orders)
+        symbols = {order.symbol for order in order_list}
         close_prices = self.data_provider.get_close_prices(symbols, date)
 
         if not close_prices:
@@ -82,7 +85,7 @@ class Backtester:
         }
         total_value = self.portfolio.total_value(valuation_prices)
 
-        for order in orders:
+        for order in order_list:
             price = close_prices.get(order.symbol)
             if price is None:
                 continue

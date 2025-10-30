@@ -1,3 +1,5 @@
 akshare
 matplotlib
 pandas
+pydantic
+typer
