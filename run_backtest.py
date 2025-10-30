@@ -11,10 +11,22 @@ from backtest import AkshareDataProvider, Backtester
 from backtest.momentum import MomentumStrategy
 
 
-app = typer.Typer(help="AkShare-based daily backtesting CLI")
+app = typer.Typer(
+    help="AkShare-based daily backtesting CLI",
+    invoke_without_command=False,
+    no_args_is_help=True,
+)
 
 
-@app.command()
+@app.callback()
+def main_callback() -> None:
+    """Primary CLI entry point for backtesting commands."""
+    # This callback exists to make `run` an explicit subcommand.
+    # No action is required when no subcommand is provided.
+    return None
+
+
+@app.command("run")
 def run(
     start: Optional[str] = typer.Option(None, help="Backtest start date (YYYYMMDD)."),
     end: Optional[str] = typer.Option(None, help="Backtest end date (YYYYMMDD)."),

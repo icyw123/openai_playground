@@ -50,7 +50,15 @@ class AkshareDataProvider:
     def get_index_data(self) -> pd.DataFrame:
         """Return the cached index data frame sorted by date."""
         if self._index_data is None:
-            df = ak.index_zh_a_daily(symbol=self._index_symbol)
+            df = ak.index_zh_a_hist(symbol=self._index_symbol)
+
+            if "日期" in df.columns:
+                df = df.rename(columns={"日期": "date"})
+            if "date" not in df.columns:
+                raise ValueError(
+                    "Unable to locate a date column in the index data returned by akshare."
+                )
+
             df["date"] = pd.to_datetime(df["date"])
             df = df.set_index("date").sort_index()
             if self._start:
